@@ -1,6 +1,11 @@
 version: "3.7"
 
 services:
+  whoami:
+    image: traefik/whoami
+    ports:
+      - "8001:80"
+
   httpbin:
     image: kennethreitz/httpbin
     ports:

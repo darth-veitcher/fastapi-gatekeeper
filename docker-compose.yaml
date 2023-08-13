@@ -1,0 +1,15 @@
+version: "3.7"
+
+services:
+  httpbin:
+    image: kennethreitz/httpbin
+    ports:
+      - "9000:80"
+
+  dex:
+    image: dexidp/dex:v2.28.1
+    volumes:
+      - ./data/dex/dex-config.yaml:/etc/dex/cfg/config.yaml
+    ports:
+      - "5556:5556"
+    command: ["dex", "serve", "/etc/dex/cfg/config.yaml"]

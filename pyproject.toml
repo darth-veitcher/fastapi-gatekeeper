@@ -12,6 +12,7 @@ fastapi = {extras = ["all"], version = "^0.101.0"}
 python-multipart = "^0.0.6"
 authlib = "^1.2.1"
 httpx = "^0.24.1"
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
 
 
 [tool.poetry.group.lint.dependencies]

@@ -8,6 +8,38 @@ storage:
 web:
   http: 0.0.0.0:5556
 
+connectors:
+  - type: ldap
+    name: OpenLDAP
+    id: ldap
+    config:
+      host: openldap:10389
+      insecureNoSSL: true
+      insecureSkipVerify: true
+      bindDN: cn=admin,dc=planetexpress,dc=com
+      bindPW: GoodNewsEveryone
+      usernamePrompt: Email Address
+      userSearch:
+        baseDN: dc=planetexpress,dc=com
+        filter: "(objectClass=iNetOrgPerson)"
+        username: mail
+        idAttr: DN
+        emailAttr: mail
+        nameAttr: cn
+      groupSearch:
+        # baseDN: ou=groups,dc=example,dc=com
+        # filter: "(objectClass=groupOfNames)"
+        # userMatchers:
+        #   - userAttr: DN
+        #     groupAttr: member
+        # nameAttr: cn
+        baseDN: ou=people,dc=planetexpress,dc=com
+        filter: "(objectClass=Group)"
+        userMatchers:
+          - userAttr: DN
+            groupAttr: member
+        nameAttr: cn
+
 staticClients:
   - id: fastapi
     redirectURIs:
@@ -21,9 +53,8 @@ staticClients:
 enablePasswordDB: true
 
 staticPasswords:
-  - email: "admin@example.com"
+  - email: "admin@planetexpress.com"
     # bcrypt hash of the string "password": $(echo password | htpasswd -BinC 10 admin | cut -d: -f2)
     hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
     username: "admin"
     userID: "08a8684b-db88-4b73-90a9-3cd1661f5466"
-    groups: ["admins", "users"]

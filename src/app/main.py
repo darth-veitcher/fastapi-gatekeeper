@@ -10,6 +10,8 @@ from starlette.config import Config
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse
 
+from jose import jwt, JWTError
+
 app = FastAPI()
 
 # Use Starlette's session middleware
@@ -19,6 +21,9 @@ app.add_middleware(SessionMiddleware, secret_key="some-secret-key", max_age=3600
 @app.exception_handler(HTTPException)
 async def custom_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 401:
+        print(
+            "Custom exception unathenticated 401 handler called. Redirecting to login..."
+        )
         # Store the originally requested URL
         request.session["next_url"] = str(request.url)
         return RedirectResponse(url=request.url_for("login"))
@@ -39,7 +44,7 @@ oauth.register(
     refresh_token_url=None,
     server_metadata_url=config("DEX_SERVER_METADATA_URL"),
     redirect_uri=config("DEX_REDIRECT_URI"),
-    client_kwargs={"scope": "openid profile email"},
+    client_kwargs={"scope": "openid profile email groups"},
 )
 
 
@@ -59,14 +64,48 @@ async def login(request: Request):
 @app.route("/auth")
 async def auth(request: Request):
     token = await oauth.dex.authorize_access_token(request)
-    # user = await oauth.dex.parse_id_token(request, token)
-    user = token.get("userinfo")
+
+    id_token = token.get("id_token")
+    if not id_token:
+        raise HTTPException(status_code=400, detail="ID token missing from response")
+
+    jwks_data = oauth.dex.server_metadata.get("jwks")
+    header = jwt.get_unverified_header(token["id_token"])
+    kid = header["kid"]
+    key = next((key for key in jwks_data["keys"] if key["kid"] == kid), None)
+
+    # Decode ID token and verify its signature
+    try:
+        decoded_token = jwt.decode(
+            id_token,
+            jwks_data,
+            algorithms=oauth.dex.server_metadata.get(
+                "id_token_signing_alg_values_supported"
+            ),
+            access_token=token.get("access_token"),
+            options={"verify_signature": True, "verify_aud": False},
+        )
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token signature is invalid")
+
+    # Extract user groups
+    groups = decoded_token.get("groups", [])
+
+    user = token.get("userinfo") or decoded_token
     # Use 'preferred_username' or 'email' if 'name' doesn't exist
     user_name = user.get("name") or user.get("preferred_username") or user.get("email")
-    request.session["user"] = {"name": user_name}
+
+    # Update the session object
+    request.session["user"] = {"name": user_name, "groups": groups}
+
     # Redirect to the original requested URL or default to "/"
-    next_url = request.session.pop("next_url", request.url_for("private_route"))
+    next_url = request.session.pop("next_url", request.url_for("about_me"))
     return RedirectResponse(next_url)
+
+
+@app.get("/about/me")
+async def about_me(user: dict = Depends(get_current_user)):
+    return {"user": user}
 
 
 @app.get("/private-route")

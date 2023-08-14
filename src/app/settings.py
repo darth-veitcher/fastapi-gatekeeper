@@ -1,9 +1,11 @@
 # settings.py
 import secrets
+from pathlib import Path
+
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
+
 from app import APP_ROOT
-from pathlib import Path
 
 
 class Settings(BaseSettings):

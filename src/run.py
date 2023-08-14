@@ -2,7 +2,9 @@
 
 if __name__ == "__main__":
     import sys
+
     import uvicorn
+
     from app.main import create_app
 
     if sys.argv.pop() == "--reload":

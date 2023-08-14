@@ -1,22 +1,21 @@
-import asyncio
 import os
 import sys
 from pathlib import Path
-from dotenv import load_dotenv
-from app.settings import Settings
-from pydantic import ValidationError
 
 from authlib.integrations.starlette_client import OAuth
+from authlib.integrations.base_client.errors import MismatchingStateError
+from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
-from httpx import AsyncClient
+from fastapi.responses import JSONResponse
 from jose import JWTError, jwt
-from app.logger import init_logging
 from loguru import logger
-from starlette.background import BackgroundTask
-from starlette.config import Config
+from pydantic import ValidationError
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse
+
+from app.logger import init_logging
+from app.proxy import transparent_proxy
+from app.settings import Settings
 
 app: FastAPI
 
@@ -64,6 +63,13 @@ def create_app(env: str | None = None):
     # TODO: replace secret_key with environment variable
     app.add_middleware(SessionMiddleware, secret_key="some-secret-key", max_age=3600)
 
+    @app.exception_handler(MismatchingStateError)
+    async def csrf_expection_handler(request: Request, exc: MismatchingStateError):
+        logger.debug("CSRF error detected. Wiping session...")
+        url = request.session["next_url"] or str(request.url)
+        request.session.clear()
+        return RedirectResponse(url=url)
+
     @app.exception_handler(HTTPException)
     async def custom_exception_handler(request: Request, exc: HTTPException):
         if exc.status_code == 401:
@@ -73,10 +79,11 @@ def create_app(env: str | None = None):
             # Store the originally requested URL
             request.session["next_url"] = str(request.url)
             return RedirectResponse(url=request.url_for("login"))
+        if exc.status_code == 403:
+            logger.debug("Custom exception unauthorised 403 handler called.")
+            return JSONResponse({"message": "Unauthorised. You shouldn't be here."})
         # Handle other exceptions the default way or add custom handlers
         return await app.exception_handler(request, exc)
-
-    config = Config(".env")  # assuming you have a .env file for configurations
 
     oauth = OAuth()
     oauth.register(
@@ -97,6 +104,15 @@ def create_app(env: str | None = None):
         if not user:
             raise HTTPException(status_code=401, detail="Not authenticated")
         return user
+
+    def get_current_user_group(group: str):
+        def _get_user_group(user: dict = Depends(get_current_user)):
+            # Check if the desired group is in the user's groups
+            if group not in user.get("groups", []):
+                raise HTTPException(status_code=403, detail="Not in the required group")
+            return user
+
+        return _get_user_group
 
     @app.route("/login")
     async def login(request: Request):
@@ -164,40 +180,16 @@ def create_app(env: str | None = None):
         logger.info(f"Showing information for `{user.get('name')}`")
         return {"user": user}
 
-    @app.get("/private-route")
-    async def private_route(user: dict = Depends(get_current_user)):
-        return {"message": f"Hello, {user.get('name', 'unknown user')}!"}
-
-    @app.get("/proxy-endpoint/{resource}")
+    @app.get("/proxy-endpoint/{path:path}")
     async def proxy_endpoint(
-        resource: str, request: Request, user: dict = Depends(get_current_user)
+        path: Path, request: Request, user: dict = Depends(get_current_user)
     ):
-        try:
-            client = AsyncClient()
-            req = client.build_request(
-                request.method,
-                f"http://httpbin.org/anything/{resource}",
-                headers=request.headers,
-            )
-            resp = await client.send(req, stream=True)
+        return await transparent_proxy("http://httpbin.org/anything", request)
 
-            async def content_generator():
-                async for chunk in resp.aiter_bytes():
-                    yield chunk
-
-            def close_response():
-                asyncio.run(resp.aclose())
-
-            return StreamingResponse(
-                content_generator(),
-                headers=dict(resp.headers),
-                background=BackgroundTask(close_response),
-            )
-        except Exception as e:
-            logger.error("ERROR: Unable to proxy resource.")
-            logger.error(e)
-            raise HTTPException(
-                status_code=500, detail="An error occurred when proxying the request."
-            )
+    @app.get("/admins-only")
+    async def admin_endpoint(
+        user: dict = Depends(get_current_user_group("admin_staff")),
+    ):
+        return {"message": "Welcome, admin!"}
 
     return app

@@ -10,15 +10,16 @@ Use the provided `docker-compose.yaml`. This will deploy a couple of test servic
 docker compose up
 ```
 
-Now run the proxy.
+Now run the proxy with the sample environment variables set.
 
 ```zsh
-src/run.py
+GATEKEEPER_ENV=sample src/run.py
 ```
 
-Navigate to a protected route, eg. [localhost:8000/proxy-endpoint/super-secret](http://localhost:8000/proxy-endpoint/super-secret).
+Navigate to a protected route. You'll be prompted to login with credentials before you're able to access that resource.
 
-You'll be prompted to login with credentials before you're able to access that resource.
+- [localhost:8000/proxy-endpoint/super-secret](http://localhost:8000/proxy-endpoint/super-secret) will give you transparently proxied information from a remote service.
+- [localhost:8000/about/me](http://localhost:8000/about/me) will give you information about the currently logged in user.
 
 ![login options](docs/img/dex-login-options.png)
 

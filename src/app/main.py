@@ -1,6 +1,4 @@
 import asyncio
-from random import choice
-from uuid import uuid4
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import Depends, FastAPI, HTTPException, Request
@@ -136,12 +134,9 @@ async def proxy_endpoint(
 ):
     try:
         client = AsyncClient()
-        upstream = choice(
-            ["whoami", "httpbin/anything"]
-        )  # randomly choose one of the upstreams
         req = client.build_request(
             request.method,
-            f"http://{upstream}/{resource}",
+            f"http://httpbin.org/anything/{resource}",
             headers=request.headers,
         )
         resp = await client.send(req, stream=True)

@@ -4,18 +4,24 @@ services:
   whoami:
     image: traefik/whoami
     ports:
-      - "8001:80"
+      - "80"
+    networks:
+      - auth
 
   httpbin:
     image: kennethreitz/httpbin
     ports:
-      - "9000:80"
+      - "80"
+    networks:
+      - auth
 
   openldap:
     image: rroemhild/test-openldap
     ports:
       - "10389:10389"
       - "10636:10636"
+    networks:
+      - auth
 
   dex:
     image: dexidp/dex:v2.28.1
@@ -24,3 +30,9 @@ services:
     ports:
       - "5556:5556"
     command: ["dex", "serve", "/etc/dex/cfg/config.yaml"]
+    networks:
+      - default
+      - auth
+
+networks:
+  auth:

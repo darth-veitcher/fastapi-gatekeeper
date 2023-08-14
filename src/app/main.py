@@ -1,27 +1,31 @@
 import asyncio
 from random import choice
+from uuid import uuid4
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from httpx import AsyncClient
+from jose import JWTError, jwt
+from app.logger import init_logging
+from loguru import logger
 from starlette.background import BackgroundTask
 from starlette.config import Config
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse
 
-from jose import jwt, JWTError
-
-app = FastAPI()
+app = FastAPI(title="FastAPI Gatekeeper")
+init_logging()
 
 # Use Starlette's session middleware
+# TODO: replace secret_key with environment variable
 app.add_middleware(SessionMiddleware, secret_key="some-secret-key", max_age=3600)
 
 
 @app.exception_handler(HTTPException)
 async def custom_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 401:
-        print(
+        logger.debug(
             "Custom exception unathenticated 401 handler called. Redirecting to login..."
         )
         # Store the originally requested URL
@@ -70,9 +74,6 @@ async def auth(request: Request):
         raise HTTPException(status_code=400, detail="ID token missing from response")
 
     jwks_data = oauth.dex.server_metadata.get("jwks")
-    header = jwt.get_unverified_header(token["id_token"])
-    kid = header["kid"]
-    key = next((key for key in jwks_data["keys"] if key["kid"] == kid), None)
 
     # Decode ID token and verify its signature
     try:
@@ -95,22 +96,37 @@ async def auth(request: Request):
     # Use 'preferred_username' or 'email' if 'name' doesn't exist
     user_name = user.get("name") or user.get("preferred_username") or user.get("email")
 
-    # Update the session object
-    request.session["user"] = {"name": user_name, "groups": groups}
+    # Store the user data and the id_token in the session
+    request.session["user"] = {
+        "name": user_name,
+        "groups": groups,
+        "id_token": id_token,
+    }
+    logger.info(f"User `{user_name}` successfully authenticated.")
+    logger.debug(request.session.get("user"))
 
     # Redirect to the original requested URL or default to "/"
     next_url = request.session.pop("next_url", request.url_for("about_me"))
     return RedirectResponse(next_url)
 
 
+@app.get("/logout")
+async def logout(request: Request, user: dict = Depends(get_current_user)):
+    # Use the user object obtained from the get_current_user dependency.
+    del request.session["user"]
+    logger.info(f"Logged out {user.get('name')}.")
+
+    return RedirectResponse("/")
+
+
 @app.get("/about/me")
 async def about_me(user: dict = Depends(get_current_user)):
+    logger.info(f"Showing information for `{user.get('name')}`")
     return {"user": user}
 
 
 @app.get("/private-route")
 async def private_route(user: dict = Depends(get_current_user)):
-    print(user)
     return {"message": f"Hello, {user.get('name', 'unknown user')}!"}
 
 
@@ -118,24 +134,33 @@ async def private_route(user: dict = Depends(get_current_user)):
 async def proxy_endpoint(
     resource: str, request: Request, user: dict = Depends(get_current_user)
 ):
-    client = AsyncClient()
-    upstream = choice(["8001", "9000/anything"])
-    req = client.build_request(
-        request.method,
-        f"http://127.0.0.1:{upstream}/{resource}",
-        headers=request.headers,
-    )
-    resp = await client.send(req, stream=True)
+    try:
+        client = AsyncClient()
+        upstream = choice(
+            ["whoami", "httpbin/anything"]
+        )  # randomly choose one of the upstreams
+        req = client.build_request(
+            request.method,
+            f"http://{upstream}/{resource}",
+            headers=request.headers,
+        )
+        resp = await client.send(req, stream=True)
 
-    async def content_generator():
-        async for chunk in resp.aiter_bytes():
-            yield chunk
+        async def content_generator():
+            async for chunk in resp.aiter_bytes():
+                yield chunk
 
-    def close_response():
-        asyncio.run(resp.aclose())
+        def close_response():
+            asyncio.run(resp.aclose())
 
-    return StreamingResponse(
-        content_generator(),
-        headers=dict(resp.headers),
-        background=BackgroundTask(close_response),
-    )
+        return StreamingResponse(
+            content_generator(),
+            headers=dict(resp.headers),
+            background=BackgroundTask(close_response),
+        )
+    except Exception as e:
+        logger.error("ERROR: Unable to proxy resource.")
+        logger.error(e)
+        raise HTTPException(
+            status_code=500, detail="An error occurred when proxying the request."
+        )

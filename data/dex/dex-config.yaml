@@ -10,7 +10,7 @@ web:
 
 connectors:
   - type: ldap
-    name: OpenLDAP
+    name: "Planet Express"
     id: ldap
     config:
       host: openldap:10389
@@ -45,7 +45,7 @@ staticClients:
     redirectURIs:
       - "http://localhost:8000/auth" # This will need to be an endpoint in your FastAPI application to handle the Dex callback.
       - "http://127.0.0.1:8000/auth" # This will need to be an endpoint in your FastAPI application to handle the Dex callback.
-      - "http://authentication_service:8000/auth" # This will need to be an endpoint in your FastAPI application to handle the Dex callback.
+      - "http://fastapi_gatekeeper:8000/auth" # This will need to be an endpoint in your FastAPI application to handle the Dex callback.
     name: "FastAPI Application"
     secret: your-client-secret # generate a secure secret for your application.
 
@@ -53,7 +53,7 @@ staticClients:
 enablePasswordDB: true
 
 staticPasswords:
-  - email: "admin@planetexpress.com"
+  - email: "admin@example.com"
     # bcrypt hash of the string "password": $(echo password | htpasswd -BinC 10 admin | cut -d: -f2)
     hash: "$2a$10$2b2cU8CPhOTaGrs1HRQuAueS7JTT5ZHsHSzYiFPm1leZck7Mc8T4W"
     username: "admin"

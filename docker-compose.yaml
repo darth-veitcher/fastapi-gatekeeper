@@ -1,20 +1,6 @@
 version: "3.7"
 
 services:
-  whoami:
-    image: traefik/whoami
-    ports:
-      - "80"
-    networks:
-      - auth
-
-  httpbin:
-    image: kennethreitz/httpbin
-    ports:
-      - "80"
-    networks:
-      - auth
-
   openldap:
     image: rroemhild/test-openldap
     ports:

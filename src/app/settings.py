@@ -23,4 +23,6 @@ class Settings(BaseSettings):
 
     # Pydantic meta
     # https://docs.pydantic.dev/dev-v2/usage/model_config/
-    model_config = ConfigDict(env_prefix="GATEKEEPER_", case_sensitive=False)
+    model_config = ConfigDict(
+        env_prefix="GATEKEEPER_", case_sensitive=False
+    )  # type: ignore

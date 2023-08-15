@@ -42,5 +42,8 @@ upstreams:
         methods:
           - GET
           - POST
+        roles:
+          - admin_staff
+          - ship_staff
 # Make sure to always keep this configuration secure!
 # Unauthorized access or changes to this configuration can compromise your service's security.

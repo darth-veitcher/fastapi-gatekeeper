@@ -9,8 +9,12 @@ if __name__ == "__main__":
 
     if sys.argv.pop() == "--reload":
         uvicorn.run(
-            "app.main:create_app", host="0.0.0.0", port=8000, reload=True, factory=True
+            "app.main:create_app",
+            host="0.0.0.0",  # nosec: B104
+            port=8000,
+            reload=True,
+            factory=True,
         )
     else:
         app = create_app()
-        uvicorn.run(app, host="0.0.0.0", port=8000)
+        uvicorn.run(app, host="0.0.0.0", port=8000)  # nosec: B104

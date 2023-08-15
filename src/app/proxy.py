@@ -26,7 +26,7 @@ async def transparent_proxy(
         content=request.stream(),
     )
     logger.debug(f"{tp_req.url}")
-    logger.debug(f"{vars(tp_req)}")
+    # logger.debug(f"{vars(tp_req)}")  # Enable for tracing...
 
     try:
         tp_resp = await client.send(tp_req, stream=True)

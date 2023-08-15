@@ -1,0 +1,46 @@
+# Configuration for Proxy Routing with Access Control
+
+# The upstreams section lists all the remote services you want to proxy.
+# Each upstream has its own set of URIs with associated access rules.
+upstreams:
+  # The 'url' is the address of the remote service you want to proxy to.
+  # Optionally, you can provide a 'slug', which acts as a unique identifier for this upstream.
+  # If you don't provide a 'slug', one will be auto-generated from the URL.
+  - url: "https://httpbin.org"
+    #slug: "first-service" # This is an optional identifier for your service.
+
+    # Under 'uris', you define rules for specific paths of this upstream.
+    # You specify the path, the HTTP methods, and the allowed roles/users.
+    uris:
+      "/anything/test": # Path you want to secure.
+        methods: # HTTP methods this rule applies to. If omitted, all methods are allowed.
+          - GET
+        roles: # Roles that are allowed to access this path.
+          - admin_staff
+        users: # Specific users allowed. This has priority over roles.
+          - bender@planetexpress.com
+
+      "/stream/*": # You can use wildcards to cover multiple paths.
+        methods:
+          - GET
+        roles:
+          - admin_staff
+
+  # Here's another upstream example with an explicit slug.
+  - url: "https://ipleak.net"
+    slug: "ip"
+    uris:
+      "/*": # This URI is open to any authenticated user, as neither 'roles' nor 'users' are specified.
+        methods:
+          - GET
+          - POST
+
+  - url: "http://localhost:3000"
+    slug: "martin"
+    uris:
+      "/*": # This URI is open to any authenticated user, as neither 'roles' nor 'users' are specified.
+        methods:
+          - GET
+          - POST
+# Make sure to always keep this configuration secure!
+# Unauthorized access or changes to this configuration can compromise your service's security.

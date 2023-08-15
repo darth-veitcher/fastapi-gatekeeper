@@ -48,6 +48,12 @@ staticClients:
       - "http://fastapi_gatekeeper:8000/auth" # This will need to be an endpoint in your FastAPI application to handle the Dex callback.
     name: "FastAPI Application"
     secret: your-client-secret # generate a secure secret for your application.
+  - id: qgis
+    redirectURIs:
+      - "http://localhost:7070/" # This will need to be configured in the QGIS client
+      - "http://127.0.0.1:7070/" # This will need to be configured in the QGIS client
+    name: "QGIS Desktop"
+    secret: your-qgis-secret # generate a secure secret for your application.
 
 # Let dex keep a list of passwords which can be used to login to dex.
 enablePasswordDB: true

@@ -2,8 +2,8 @@ import os
 import sys
 from pathlib import Path
 
-from authlib.integrations.starlette_client import OAuth
 from authlib.integrations.base_client.errors import MismatchingStateError
+from authlib.integrations.starlette_client import OAuth
 from dotenv import load_dotenv
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -58,6 +58,10 @@ def create_app(env: str | None = None):
         sys.exit(1)
 
     # Router
+    from app.routes import add_routes, load_config
+
+    config = load_config("routes.sample.yaml")
+    app = add_routes(app, config)
 
     # Use Starlette's session middleware
     # TODO: replace secret_key with environment variable
@@ -76,12 +80,16 @@ def create_app(env: str | None = None):
             logger.debug(
                 "Custom exception unathenticated 401 handler called. Redirecting to login..."
             )
+            logger.debug(vars(request))
             # Store the originally requested URL
             request.session["next_url"] = str(request.url)
             return RedirectResponse(url=request.url_for("login"))
         if exc.status_code == 403:
             logger.debug("Custom exception unauthorised 403 handler called.")
             return JSONResponse({"message": "Unauthorised. You shouldn't be here."})
+        if exc.status_code == 500:
+            logger.debug("Custom 500 error called.")
+            return JSONResponse({"message": exc})
         # Handle other exceptions the default way or add custom handlers
         return await app.exception_handler(request, exc)
 
@@ -157,11 +165,13 @@ def create_app(env: str | None = None):
         # Store the user data and the id_token in the session
         request.session["user"] = {
             "name": user_name,
+            "email": user.get("email"),
             "groups": groups,
             "id_token": id_token,
         }
         logger.info(f"User `{user_name}` successfully authenticated.")
-        logger.debug(request.session.get("user"))
+        logger.debug(f"Token userinfo: {user}")
+        logger.debug(f"Session: {request.session.get('user')}")
 
         # Redirect to the original requested URL or default to "/"
         next_url = request.session.pop("next_url", request.url_for("about_me"))

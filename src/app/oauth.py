@@ -1,6 +1,7 @@
 # oauth.py
 
 from authlib.integrations.starlette_client import OAuth
+from fastapi.security import OAuth2PasswordBearer
 
 
 def init_oauth(app):
@@ -18,4 +19,10 @@ def init_oauth(app):
         redirect_uri=app.state.settings.OAUTH2_REDIRECT_URI,
         client_kwargs={"scope": app.state.settings.OAUTH2_SCOPES},
     )
-    return oauth
+    app.state.oauth = oauth
+
+    # Add bearer token support
+    oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+    app.state.oauth2_scheme = oauth2_scheme
+
+    return app

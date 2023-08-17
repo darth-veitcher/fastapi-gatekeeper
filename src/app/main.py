@@ -10,7 +10,6 @@ from loguru import logger
 from app.logger import init_logging
 from app.settings import Settings
 from pydantic import ValidationError
-from authlib.integrations.starlette_client import OAuth
 
 app: FastAPI
 
@@ -67,8 +66,6 @@ def configure_app(app: FastAPI):
     from app.exception_handlers import csrf_exception_handler, custom_exception_handler
     from app.oauth import init_oauth
 
-    global oauth
-
     # Router
     app.include_router(core_router)
     config = load_config("routes.sample.yaml")
@@ -77,7 +74,7 @@ def configure_app(app: FastAPI):
     app.exception_handler(MismatchingStateError)(csrf_exception_handler)
     app.exception_handler(HTTPException)(custom_exception_handler)
     # Initialize OAuth for the application
-    app.state.oauth = init_oauth(app)
+    app = init_oauth(app)
 
     return app
 

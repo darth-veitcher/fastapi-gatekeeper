@@ -8,7 +8,7 @@ from loguru import logger
 
 async def csrf_exception_handler(request: Request, exc: MismatchingStateError):
     logger.debug("CSRF error detected. Wiping session...")
-    url = request.session["next_url"] or str(request.url)
+    url = request.session.get("next_url") or str(request.url)
     request.session.clear()
     return RedirectResponse(url=url)
 

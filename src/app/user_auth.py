@@ -1,13 +1,23 @@
 # user_auth.py
-
+import asyncio
 from fastapi import HTTPException, Depends, Request
+from loguru import logger
 
 
 def get_current_user(request: Request):
     """Retrieve the current user from the session."""
     user = request.session.get("user")
     if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        # check if we've got a bearer token in the headers
+        payload = asyncio.run(request.app.state.oauth2_scheme(request))
+        if payload:
+            logger.info(f"OAuth2PasswordBearer: {payload}")
+            # authenticate them with the bearer, use `/auth` directly
+            from app.routes import _auth_with_bearer_token
+
+            user = asyncio.run(_auth_with_bearer_token(request, payload))
+        else:
+            raise HTTPException(status_code=401, detail="Not authenticated")
     return user
 
 
